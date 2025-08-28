@@ -2,7 +2,7 @@
 
 ## 简介
 
-这是一个西工大课程表下载的工具，可以下载html和csv格式的课表文件，导入到wakeup课程表里面。
+这是一个西工大课程表下载的工具，可以下载html和csv格式的课表文件，导入到wakeup课程表里面。使用AI工具 Claude完成。
 
 html格式的获取参考了呱唧的实现（[qllokirin/nonebot-plugin-npu: 翱翔门户成绩监控插件，使用nonebot框架支持QQ机器人](https://github.com/qllokirin/nonebot-plugin-npu)），此方法需要向服务器发送请求来进行获取。csv格式的获取直接爬取了课表界面的html元素，整理为csv格式。
 
