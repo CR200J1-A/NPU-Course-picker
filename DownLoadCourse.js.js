@@ -383,83 +383,42 @@
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            const htmlContent = await response.text();
+            const responseText = await response.text();
             
-            // 创建完整的HTML文档
-            const fullHTML = `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>课程表 - ${safeFilename}</title>
-    <style>
-        body { 
-            font-family: 'Microsoft YaHei', Arial, sans-serif; 
-            margin: 20px; 
-            background-color: #f5f5f5;
-        }
-        .export-content {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        table { 
-            border-collapse: collapse; 
-            width: 100%; 
-            margin: 10px 0;
-        }
-        th, td { 
-            border: 1px solid #ddd; 
-            padding: 8px; 
-            text-align: center; 
-            vertical-align: top;
-        }
-        th { 
-            background-color: #f5f5f5; 
-            font-weight: bold;
-        }
-        .course-name { 
-            font-weight: bold; 
-            margin: 2px 0; 
-            color: #333;
-        }
-        .tdHtml {
-            min-height: 60px;
-            font-size: 12px;
-            line-height: 1.4;
-        }
-        .course-info {
-            margin: 2px 0;
-            font-size: 11px;
-            color: #666;
-        }
-    </style>
-</head>
-<body>
-    <div class="export-content">
-        <h2>课程表 - ${safeFilename}</h2>
-        ${htmlContent}
-    </div>
-</body>
-</html>`;
+            // 尝试解析JSON数据
+            let courseData = null;
+            try {
+                courseData = JSON.parse(responseText);
+            } catch (error) {
+                console.log('响应不是JSON格式，直接使用原始内容:', error);
+            }
             
-            // 下载HTML文件
-            const blob = new Blob([fullHTML], { type: 'text/html;charset=utf-8' });
+            let fileContent = '';
+            
+            if (courseData && courseData.studentTableVm) {
+                // 如果是JSON格式，直接使用原始JSON数据，像standard.html一样
+                fileContent = responseText;
+            } else {
+                // 如果不是JSON，使用原始内容
+                fileContent = responseText;
+            }
+            
+            // 下载文件 - 直接保存JSON内容，无需HTML包装
+            const blob = new Blob([fileContent], { type: 'application/json;charset=utf-8' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `course-table-${safeFilename}.html`;
+            a.download = `course-table-${safeFilename}.html`;  // 保持.html扩展名以兼容现有格式
             a.style.display = 'none';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
             
-            console.log(`课程表HTML下载成功: ${safeFilename}`);
-            showNotification(`课程表HTML下载成功: ${safeFilename}`, 'success');
+            console.log(`课程表数据下载成功: ${safeFilename}`);
+            showNotification(`课程表数据下载成功: ${safeFilename}`, 'success');
             
-            return fullHTML;
+            return fileContent;
             
         } catch (error) {
             console.error('获取课程表HTML失败:', error);
@@ -468,260 +427,7 @@
         }
     }
 
-    // 1. 提取并下载HTML - 从当前页面
-    function downloadHTML() {
-        // 寻找课程表内容，兼容不同的页面结构
-        let html = document.querySelector('.export-content')?.outerHTML;
-        
-        // 如果没找到，尝试其他可能的选择器
-        if (!html) {
-            html = document.querySelector('table.courseTable')?.closest('div')?.outerHTML;
-        }
-        if (!html) {
-            html = document.querySelector('.course-table')?.outerHTML;
-        }
-        if (!html) {
-            html = document.querySelector('#courseTable')?.outerHTML;
-        }
-        
-        if (!html || html === '未找到课程表') {
-            console.error('❌ 未找到课程表内容');
-            alert('未找到课程表内容，请确保在正确的页面上运行此脚本');
-            return null;
-        }
-        
-        console.log('✅ 成功提取课程表HTML');
-        
-        // 创建完整的HTML文档
-        const fullHTML = `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>课程表</title>
-    <style>
-        body { font-family: 'Microsoft YaHei', Arial, sans-serif; margin: 20px; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-        th { background-color: #f5f5f5; }
-        .course-name { font-weight: bold; margin: 2px 0; }
-    </style>
-</head>
-<body>
-${html}
-</body>
-</html>`;
-        
-        // 下载HTML文件
-        try {
-            const blob = new Blob([fullHTML], {type: 'text/html;charset=utf-8'});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'course-table.html';
-            a.style.display = 'none';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            setTimeout(() => URL.revokeObjectURL(url), 100);
-            
-            console.log('📥 HTML文件下载完成：course-table.html');
-        } catch (error) {
-            console.error('HTML下载失败：', error);
-        }
-        
-        return html;
-    }
-    
-    // 2. 解析课程表数据
-    function parseCourseTable() {
-        // 尝试多种方式找到课程表
-        let table = document.querySelector('table.courseTable');
-        if (!table) {
-            table = document.querySelector('.course-table table');
-        }
-        if (!table) {
-            table = document.querySelector('#courseTable');
-        }
-        if (!table) {
-            table = document.querySelector('table');
-        }
-        
-        if (!table) {
-            console.error('❌ 未找到课程表');
-            return [];
-        }
-        
-        console.log('🔍 开始解析课程数据...');
-        
-        // 获取星期映射
-        const headers = Array.from(table.querySelectorAll('thead th'));
-        const weekdayMap = {};
-        const weekdays = ['', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六', '星期日'];
-        
-        headers.forEach((th, index) => {
-            const text = th.textContent.trim();
-            for (let i = 1; i <= 7; i++) {
-                if (text.includes(weekdays[i])) {
-                    weekdayMap[index] = i;
-                    break;
-                }
-            }
-        });
-        
-        console.log('📅 星期映射：', weekdayMap);
-        
-        // 解析课程单元格
-        const courses = [];
-        const courseCells = document.querySelectorAll('div.tdHtml');
-        
-        console.log(`📚 找到 ${courseCells.length} 个课程单元格`);
-        
-        courseCells.forEach(cell => {
-            if (!cell.textContent.trim()) return;
-            
-            // 确定星期
-            let weekday = 0;
-            const parentTd = cell.closest('td');
-            if (parentTd) {
-                const parentTr = parentTd.closest('tr');
-                if (parentTr) {
-                    const allTds = Array.from(parentTr.querySelectorAll('td'));
-                    const colIndex = allTds.indexOf(parentTd);
-                    weekday = weekdayMap[colIndex] || 0;
-                }
-            }
-            
-            if (weekday === 0) return;
-            
-            // 解析课程信息
-            const courseNames = cell.querySelectorAll('div.course-name');
-            courseNames.forEach(nameDiv => {
-                const courseName = nameDiv.textContent.trim().replace(/^本/, '');
-                
-                // 收集这门课程的所有相关信息（包括文本节点）
-                let currentElement = nameDiv.nextSibling;
-                const courseInfo = [];
-                
-                while (currentElement && !currentElement.classList?.contains('course-name')) {
-                    if (currentElement.nodeType === 3) { // TEXT_NODE
-                        const text = currentElement.textContent ? currentElement.textContent.trim() : '';
-                        if (text) courseInfo.push(text);
-                    } else if (currentElement.nodeType === 1) { // ELEMENT_NODE
-                        const text = currentElement.textContent ? currentElement.textContent.trim() : '';
-                        if (text && !text.match(/^[A-Z][A-Z0-9]*\.\d+$/)) { // 排除课程代码
-                            courseInfo.push(text);
-                        }
-                    }
-                    currentElement = currentElement.nextSibling;
-                }
-                
-                // 合并所有信息为一个字符串，然后分析
-                const allInfo = courseInfo.join(' ').replace(/\u00A0/g, ' '); // 替换&nbsp;为普通空格
-                console.log(`课程 "${courseName}" 的原始信息:`, courseInfo);
-                console.log(`课程 "${courseName}" 的合并信息:`, allInfo);
-                
-                // 先尝试简单的正则匹配来调试
-                const weekMatches = allInfo.match(/\((\d+)~(\d+)周\)/g);
-                const periodMatches = allInfo.match(/\((\d+-\d+节)\)/g);
-                
-                console.log(`课程 "${courseName}" 找到的周数匹配:`, weekMatches);
-                console.log(`课程 "${courseName}" 找到的节数匹配:`, periodMatches);
-                
-                // 修改正则表达式，支持范围格式 (2~11周) 和单独格式 (12周)
-                // 匹配格式：(数字~数字周) ... (数字-数字节) 或 (数字周) ... (数字-数字节)
-                const timePattern = /\((\d+)(?:~(\d+))?周\)[^(]*?\((\d+)-(\d+)节\)/g;
-                let timeMatch;
-                let matchCount = 0;
-                
-                // 重置正则表达式
-                timePattern.lastIndex = 0;
-                
-                while ((timeMatch = timePattern.exec(allInfo)) !== null) {
-                    matchCount++;
-                    console.log(`第 ${matchCount} 个匹配:`, timeMatch);
-                    
-                    const weekStart = timeMatch[1];  // 起始周
-                    const weekEnd = timeMatch[2] || timeMatch[1];  // 结束周，如果没有范围则等于起始周
-                    const periodStart = parseInt(timeMatch[3]);
-                    const periodEnd = parseInt(timeMatch[4]);
-                    
-                    console.log(`原始周数值: weekStart="${weekStart}", weekEnd="${weekEnd}"`);
-                    
-                    // 获取这个时间段后面的信息（地点和老师）
-                    const matchEndIndex = timeMatch.index + timeMatch[0].length;
-                    const remainingText = allInfo.substring(matchEndIndex);
-                    
-                    // 提取到下一个括号或字符串结束的部分
-                    const nextTimeMatch = remainingText.search(/\(\d+~\d+周\)/);
-                    const infoText = nextTimeMatch === -1 ? remainingText : remainingText.substring(0, nextTimeMatch);
-                    
-                    console.log(`课程信息文本: "${infoText}"`);
-                    
-                    // 解析地点和教师
-                    const parts = infoText.trim().split(/\s+/).filter(p => p.trim() && p !== '');
-                    console.log(`解析得到的部分:`, parts);
-                    
-                    let campus = '';
-                    let classroom = '';
-                    let teacher = '';
-                    
-                    parts.forEach(part => {
-                        if (part.includes('校区') && !campus) {
-                            campus = part;
-                        } else if ((part.startsWith('教') || part.includes('实验') || part.includes('楼')) && !classroom) {
-                            classroom = part;
-                        } else if (part.length <= 4 && /^[\u4e00-\u9fa5]+$/.test(part) && !teacher) {
-                            teacher = part;
-                        }
-                    });
-                    
-                    const location = campus && classroom ? `${campus} ${classroom}` : 
-                                   campus || classroom || '';
-                    
-                    // 确保周数格式正确：
-                    // 如果是范围格式（如2~11），显示为 "2-11"
-                    // 如果是单独格式（如12），显示为 "12"  
-                    const weekStartNum = parseInt(weekStart, 10);
-                    const weekEndNum = parseInt(weekEnd, 10);
-                    const weekRange = weekStartNum === weekEndNum ? String(weekStartNum) : `${weekStartNum}-${weekEndNum}`;
-                    
-                    console.log(`最终周数: ${weekRange} (${weekStartNum} - ${weekEndNum})`);
-                    
-                    courses.push({
-                        '课程名称': courseName,
-                        '星期': weekday,
-                        '开始节数': periodStart,
-                        '结束节数': periodEnd,
-                        '老师': teacher,
-                        '地点': location,
-                        '周数': weekRange
-                    });
-                    
-                    console.log(`✅ 成功添加课程: ${courseName} - 周数: ${weekRange}, 节数: ${periodStart}-${periodEnd}, 老师: ${teacher}`);
-                }
-                
-                if (matchCount === 0) {
-                    console.warn(`⚠️ 课程 "${courseName}" 未找到任何时间匹配`);
-                    // 尝试更宽松的匹配，支持单独周次格式
-                    const loosePattern = /(\d+)(?:~(\d+))?周/g;
-                    const looseMatches = [];
-                    let looseMatch;
-                    while ((looseMatch = loosePattern.exec(allInfo)) !== null) {
-                        looseMatches.push({
-                            weekStart: looseMatch[1],
-                            weekEnd: looseMatch[2] || looseMatch[1],
-                            match: looseMatch[0]
-                        });
-                    }
-                    console.log(`宽松匹配结果:`, looseMatches);
-                }
-            });
-        });
-        
-        console.log(`✅ 解析完成，找到 ${courses.length} 条课程记录`);
-        return courses;
-    }
+        // 从URL获取课程表HTML
     
     // 3. 生成CSV
     function generateCSV(courses) {
@@ -857,21 +563,17 @@ ${html}
         try {
             console.log('开始从当前页面解析课程表...');
             
-            // 1. 下载当前页面HTML
-            const html = downloadHTML();
-            if (!html) return;
-            
-            // 2. 解析课程
-            const courses = parseCourseTable();
+            // 直接从当前页面DOM解析课程
+            const courses = parseCourseTableFromHTML(document);
             if (courses.length === 0) {
                 showNotification('未解析到任何课程数据', 'error');
                 return;
             }
             
-            // 3. 生成CSV
+            // 生成CSV
             generateCSV(courses);
             
-            // 4. 显示摘要
+            // 显示摘要
             showSummary(courses);
             
             showNotification(`解析完成！共找到 ${courses.length} 门课程`, 'success');
