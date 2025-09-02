@@ -346,11 +346,15 @@
                 
                 // 使用手动输入的信息
                 const apiUrl = `https://jwxt.nwpu.edu.cn/student/for-std/course-table/semester/${manualSemester}/print-data/${manualStudentId}?hasExperiment=true`;
+                console.log('📍 手动输入构造的API URL:', apiUrl);
+                showNotification(`构造的API URL: ${apiUrl}`, 'info');
                 return await fetchCourseTableFromUrl(apiUrl, String(manualSemester));
             }
 
             // 构造API URL
             const apiUrl = `https://jwxt.nwpu.edu.cn/student/for-std/course-table/semester/${semester.value}/print-data/${studentAssoc}?hasExperiment=true`;
+            console.log('📍 构造的课程表API URL:', apiUrl);
+            showNotification(`构造的API URL: ${apiUrl}`, 'info');
             return await fetchCourseTableFromUrl(apiUrl, String(semester.text || semester.value));
             
         } catch (error) {
